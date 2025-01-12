@@ -72,4 +72,10 @@ app.post("/payment-success", async (req, res) => {
     }
 });
 
+
+app.get("/", (req, res) => {
+    res.send("Server is working!");
+});
+
 module.exports = app; // Export the app for Vercel
+
