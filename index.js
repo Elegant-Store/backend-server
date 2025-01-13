@@ -17,17 +17,20 @@ const keyDatabase = [
   "KEY3-XXXX-XXXX-XXXX",
 ];
 
-// PayPal API credentials (live environment)
+// PayPal API credentials
 const PAYPAL_CLIENT_ID = process.env.PAYPAL_CLIENT_ID;
 const PAYPAL_SECRET = process.env.PAYPAL_SECRET;
 const PAYPAL_API = "https://api-m.paypal.com"; // Live URL
+const GMAIL_USER = process.env.GMAIL_USER;
+const GMAIL_PASS = process.env.GMAIL_PASS;
 
-// PayPal payment creation endpoint
+
+// PayPal payment creation endpoint (POST)
 app.post("/create-paypal-payment", async (req, res) => {
   const { email, totalPrice } = req.body;
 
-  // Create PayPal payment request
   try {
+    // Request PayPal to create the payment
     const response = await axios.post(
       `${PAYPAL_API}/v2/checkout/orders`,
       {
@@ -35,12 +38,12 @@ app.post("/create-paypal-payment", async (req, res) => {
         purchase_units: [{
           amount: {
             currency_code: "USD",
-            value: totalPrice, // Use the actual price from the frontend
+            value: totalPrice,
           },
         }],
         application_context: {
-          return_url: "https://raw.githubusercontent.com/Elegant-Store/-/refs/heads/main/payment-success.html", // Redirect after success
-          cancel_url: "https://raw.githubusercontent.com/Elegant-Store/-/refs/heads/main/payment-cancel.html",  // Redirect on cancellation
+          return_url: "https://my-backend-henna-zeta.vercel.app/payment-success", // URL after successful payment
+          cancel_url: "https://my-backend-henna-zeta.vercel.app/payment-cancel",  // URL for payment cancellation
         },
       },
       {
@@ -51,7 +54,7 @@ app.post("/create-paypal-payment", async (req, res) => {
       }
     );
 
-    // Send back the approval URL to frontend
+    // Send the approval URL to frontend
     res.json({ approvalUrl: response.data.links.find(link => link.rel === 'approve').href });
   } catch (error) {
     console.error("Error creating PayPal payment:", error);
@@ -59,12 +62,12 @@ app.post("/create-paypal-payment", async (req, res) => {
   }
 });
 
-// PayPal webhook endpoint
+// Payment success route (POST)
 app.post("/payment-success", async (req, res) => {
   const { email, discord, paymentID } = req.body;
 
   try {
-    // Validate the payment using PayPal API
+    // Validate the payment via PayPal API
     const response = await axios.post(
       `${PAYPAL_API}/v2/checkout/orders/${paymentID}/capture`,
       {},
@@ -76,13 +79,11 @@ app.post("/payment-success", async (req, res) => {
       }
     );
 
-    const isValidPayment = response.data.status === "COMPLETED";
-
-    if (!isValidPayment) {
+    if (response.data.status !== "COMPLETED") {
       return res.status(400).send("Invalid payment.");
     }
 
-    // Fetch the first available key from the database
+    // Get the key from the database
     const key = keyDatabase.shift();
     if (!key) {
       return res.status(500).send("No keys available.");
@@ -117,7 +118,7 @@ app.post("/payment-success", async (req, res) => {
   }
 });
 
-// Payment failure endpoint
+// Payment cancel route (GET)
 app.get("/payment-cancel", (req, res) => {
   res.send("Payment was cancelled. Please try again.");
 });
